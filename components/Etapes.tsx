@@ -150,7 +150,8 @@ export default function Etapes() {
       updates[`etape${etapeNum}_date_fin`] = dateFin ? new Date(dateFin + 'T00:00:00').toISOString() : null
       updates[`etape${etapeNum}_statut`] = statut || null
 
-      if (selectedProjet.type_projet === "Programme d'Études") {
+      // Pour "Programme d'Études", ajouter le champ validation uniquement pour les étapes 2-6 (pas l'étape 1)
+      if (selectedProjet.type_projet === "Programme d'Études" && etapeNum > 1) {
         updates[`etape${etapeNum}_validation`] = editFormData[`etape${etapeNum}_validation`] || null
       }
 
@@ -169,11 +170,13 @@ export default function Etapes() {
         setEditingEtape(null)
         setEditFormData({})
       } else {
-        alert('Erreur lors de la sauvegarde')
+        const errorData = await response.json().catch(() => ({ error: 'Erreur inconnue' }))
+        console.error('Erreur API:', errorData)
+        alert(`Erreur lors de la sauvegarde: ${errorData.error || 'Erreur inconnue'}`)
       }
     } catch (error) {
       console.error('Erreur:', error)
-      alert('Erreur lors de la sauvegarde')
+      alert(`Erreur lors de la sauvegarde: ${error instanceof Error ? error.message : 'Erreur inconnue'}`)
     } finally {
       setSaving(false)
     }
@@ -350,7 +353,7 @@ export default function Etapes() {
                                 <option value="Terminée">Terminée</option>
                               </select>
                             </div>
-                            {getSelectedProjet()?.type_projet === "Programme d'Études" && (
+                            {getSelectedProjet()?.type_projet === "Programme d'Études" && etapeNum > 1 && (
                               <div>
                                 <label className="block text-sm font-medium mb-1">Validation</label>
                                 <input

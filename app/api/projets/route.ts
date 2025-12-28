@@ -2,12 +2,99 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enregistrerHistorique } from '@/lib/historique'
 
+const ETAPES_PROGRAMME = [
+  { num: 1, nom: "Collection des données" },
+  { num: 2, nom: "AST" },
+  { num: 3, nom: "RAP+RC" },
+  { num: 4, nom: "PE" },
+  { num: 5, nom: "Plan d'équipement" },
+  { num: 6, nom: "Publication" }
+]
+
+const ETAPES_MANUEL = [
+  { num: 1, nom: "Collection des données" },
+  { num: 2, nom: "Rédaction" },
+  { num: 3, nom: "Mise en forme" },
+  { num: 4, nom: "Validation interne" },
+  { num: 5, nom: "Validation finale" },
+  { num: 6, nom: "Publication" }
+]
+
+function calculerEtapeActuelle(etapes: any, typeProjet: string): string {
+  const etapesList = typeProjet === "Programme d'Études" ? ETAPES_PROGRAMME : ETAPES_MANUEL
+  
+  // Vérifier si toutes les étapes sont terminées
+  let toutesTerminees = true
+  for (let i = 1; i <= 6; i++) {
+    const statut = etapes?.[`etape${i}_statut`]
+    if (statut !== 'Terminée') {
+      toutesTerminees = false
+      break
+    }
+  }
+  
+  if (toutesTerminees) {
+    return 'Terminé'
+  }
+  
+  // Trouver la première étape qui n'est pas terminée
+  for (const etape of etapesList) {
+    const statut = etapes?.[`etape${etape.num}_statut`]
+    if (statut !== 'Terminée') {
+      return etape.nom
+    }
+  }
+  
+  // Si aucune étape n'a de statut, retourner la première étape
+  return etapesList[0].nom
+}
+
 export async function GET() {
   try {
     const projets = await prisma.projet.findMany({
-      orderBy: { date_creation: 'desc' }
+      orderBy: { date_creation: 'desc' },
+      include: {
+        etapes_programme: true,
+        etapes_manuel: true
+      }
     })
-    return NextResponse.json(projets)
+    
+    // Calculer l'étape actuelle pour chaque projet et préparer les mises à jour
+    const misesAJour: Promise<any>[] = []
+    const projetsAvecEtapeActuelle = projets.map(projet => {
+      const etapes = projet.type_projet === "Programme d'Études" 
+        ? projet.etapes_programme 
+        : projet.etapes_manuel
+      
+      const etapeActuelle = etapes ? calculerEtapeActuelle(etapes, projet.type_projet) : "Collection des données"
+      
+      // Mettre à jour l'étape_actuelle dans la base de données si elle a changé
+      if (projet.etape_actuelle !== etapeActuelle) {
+        misesAJour.push(
+          prisma.projet.update({
+            where: { id: projet.id },
+            data: { etape_actuelle: etapeActuelle }
+          }).catch(err => {
+            console.error(`Erreur lors de la mise à jour de l'étape actuelle pour ${projet.id}:`, err)
+            return null
+          })
+        )
+      }
+      
+      return {
+        ...projet,
+        etape_actuelle: etapeActuelle
+      }
+    })
+    
+    // Attendre toutes les mises à jour en arrière-plan (ne bloque pas la réponse)
+    if (misesAJour.length > 0) {
+      Promise.all(misesAJour).catch(err => 
+        console.error('Erreur lors des mises à jour des étapes actuelles:', err)
+      )
+    }
+    
+    return NextResponse.json(projetsAvecEtapeActuelle)
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(

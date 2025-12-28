@@ -2,6 +2,53 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { enregistrerHistorique } from '@/lib/historique'
 
+const ETAPES_PROGRAMME = [
+  { num: 1, nom: "Collection des données" },
+  { num: 2, nom: "AST" },
+  { num: 3, nom: "RAP+RC" },
+  { num: 4, nom: "PE" },
+  { num: 5, nom: "Plan d'équipement" },
+  { num: 6, nom: "Publication" }
+]
+
+const ETAPES_MANUEL = [
+  { num: 1, nom: "Collection des données" },
+  { num: 2, nom: "Rédaction" },
+  { num: 3, nom: "Mise en forme" },
+  { num: 4, nom: "Validation interne" },
+  { num: 5, nom: "Validation finale" },
+  { num: 6, nom: "Publication" }
+]
+
+function calculerEtapeActuelle(etapes: any, typeProjet: string): string {
+  const etapesList = typeProjet === "Programme d'Études" ? ETAPES_PROGRAMME : ETAPES_MANUEL
+  
+  // Vérifier si toutes les étapes sont terminées
+  let toutesTerminees = true
+  for (let i = 1; i <= 6; i++) {
+    const statut = etapes?.[`etape${i}_statut`]
+    if (statut !== 'Terminée') {
+      toutesTerminees = false
+      break
+    }
+  }
+  
+  if (toutesTerminees) {
+    return 'Terminé'
+  }
+  
+  // Trouver la première étape qui n'est pas terminée
+  for (const etape of etapesList) {
+    const statut = etapes?.[`etape${etape.num}_statut`]
+    if (statut !== 'Terminée') {
+      return etape.nom
+    }
+  }
+  
+  // Si aucune étape n'a de statut, retourner la première étape
+  return etapesList[0].nom
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -114,9 +161,18 @@ export async function PUT(request: Request) {
       )
     }
 
-    // Convertir les dates
+    // Convertir les dates et filtrer les champs invalides
     const processedData: any = {}
     for (const [key, value] of Object.entries(etapesData)) {
+      // Pour "Programme d'Études", exclure etape1_validation (n'existe pas dans le schéma)
+      if (type_projet === "Programme d'Études" && key === 'etape1_validation') {
+        continue
+      }
+      // Pour "Manuel", exclure tous les champs validation (n'existent pas dans le schéma)
+      if (type_projet === "Manuel" && key.includes('_validation')) {
+        continue
+      }
+      
       if (key.includes('date') && value) {
         processedData[key] = new Date(value as string)
       } else {
@@ -148,6 +204,13 @@ export async function PUT(request: Request) {
         })
       }
       
+      // Mettre à jour automatiquement l'étape_actuelle du projet
+      const etapeActuelle = calculerEtapeActuelle(etapes, type_projet)
+      await prisma.projet.update({
+        where: { id: projet_id },
+        data: { etape_actuelle: etapeActuelle }
+      })
+      
       return NextResponse.json(etapes)
     } else {
       const etapes = await prisma.etapeManuel.upsert({
@@ -169,12 +232,20 @@ export async function PUT(request: Request) {
         })
       }
       
+      // Mettre à jour automatiquement l'étape_actuelle du projet
+      const etapeActuelle = calculerEtapeActuelle(etapes, type_projet)
+      await prisma.projet.update({
+        where: { id: projet_id },
+        data: { etape_actuelle: etapeActuelle }
+      })
+      
       return NextResponse.json(etapes)
     }
   } catch (error) {
-    console.error('Erreur:', error)
+    console.error('Erreur lors de la mise à jour des étapes:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
     return NextResponse.json(
-      { error: 'Erreur lors de la mise à jour des étapes' },
+      { error: `Erreur lors de la mise à jour des étapes: ${errorMessage}` },
       { status: 500 }
     )
   }
