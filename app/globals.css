@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #1F4E78;
+  --secondary-color: #4472C4;
+  --accent-color: #5B9BD5;
+  --success-color: #70AD47;
+  --warning-color: #FFC000;
+  --danger-color: #C00000;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 10px;
+}
+

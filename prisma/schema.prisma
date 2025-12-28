@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./direction_etudes.db"
+}
+
+model Projet {
+  id                String   @id @default("")
+  type_projet       String   // "Programme d'Études" ou "Manuel"
+  titre             String
+  description       String?
+  code_spec         String?
+  date_debut        DateTime
+  date_fin_prevue   DateTime?
+  statut            String   @default("En cours") // En cours, Terminé, En attente, Annulé
+  etape_actuelle    String?
+  priorite          String   @default("Moyenne") // Haute, Moyenne, Basse
+  secteur_economique String? // Pour Programme d'Études uniquement
+  date_creation     DateTime @default(now())
+  
+  etapes_programme  EtapeProgramme?
+  etapes_manuel     EtapeManuel?
+  affectations      Affectation[]
+  validations       Validation[]
+  historique        Historique[]
+  
+  @@map("projets")
+}
+
+model Formateur {
+  id           String   @id @default("")
+  nom          String
+  prenom       String
+  specialite   String?
+  email        String?
+  telephone    String?
+  statut       String   @default("Actif") // Actif, Inactif
+  date_creation DateTime @default(now())
+  
+  affectations Affectation[]
+  
+  @@map("formateurs")
+}
+
+model EtapeProgramme {
+  id              Int      @id @default(autoincrement())
+  projet_id       String
+  projet          Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  etape1_date_debut DateTime?
+  etape1_date_fin   DateTime?
+  etape1_statut     String?
+  
+  etape2_date_debut DateTime?
+  etape2_date_fin   DateTime?
+  etape2_statut     String?
+  etape2_validation String?
+  
+  etape3_date_debut DateTime?
+  etape3_date_fin   DateTime?
+  etape3_statut     String?
+  etape3_validation String?
+  
+  etape4_date_debut DateTime?
+  etape4_date_fin   DateTime?
+  etape4_statut     String?
+  etape4_validation String?
+  
+  etape5_date_debut DateTime?
+  etape5_date_fin   DateTime?
+  etape5_statut     String?
+  etape5_validation String?
+  
+  etape6_date_debut DateTime?
+  etape6_date_fin   DateTime?
+  etape6_statut     String?
+  etape6_validation String?
+  
+  @@unique([projet_id])
+  @@map("etapes_programme")
+}
+
+model EtapeManuel {
+  id              Int      @id @default(autoincrement())
+  projet_id       String
+  projet          Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  etape1_date_debut DateTime?
+  etape1_date_fin   DateTime?
+  etape1_statut     String?
+  
+  etape2_date_debut DateTime?
+  etape2_date_fin   DateTime?
+  etape2_statut     String?
+  
+  etape3_date_debut DateTime?
+  etape3_date_fin   DateTime?
+  etape3_statut     String?
+  
+  etape4_date_debut DateTime?
+  etape4_date_fin   DateTime?
+  etape4_statut     String?
+  
+  etape5_date_debut DateTime?
+  etape5_date_fin   DateTime?
+  etape5_statut     String?
+  
+  etape6_date_debut DateTime?
+  etape6_date_fin   DateTime?
+  etape6_statut     String?
+  
+  @@unique([projet_id])
+  @@map("etapes_manuel")
+}
+
+model Affectation {
+  id             String   @id @default("")
+  projet_id      String
+  formateur_id   String
+  role           String   // Responsable, Contributeur
+  date_affectation DateTime @default(now())
+  charge_travail Int?
+  
+  projet    Projet    @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  formateur Formateur @relation(fields: [formateur_id], references: [id], onDelete: Cascade)
+  
+  @@map("affectations")
+}
+
+model Validation {
+  id            String   @id @default("")
+  projet_id     String
+  etape         String
+  date_demande  DateTime @default(now())
+  validateur    String?
+  date_validation DateTime?
+  statut        String   @default("En attente") // En attente, Validé, Refusé
+  commentaires  String?
+  rep_ifep      String?
+  rep_infep     String?
+  insp          String?
+  rep_sect_eco  String?
+  
+  projet Projet @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  @@map("validations")
+}
+
+model Historique {
+  id         Int      @id @default(autoincrement())
+  projet_id  String?
+  action     String
+  utilisateur String? @default("Système")
+  details    String?
+  date_action DateTime @default(now())
+  
+  projet Projet? @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  @@map("historique")
+}
+
+model IfepInfo {
+  id                    Int      @id @default(autoincrement())
+  nom                   String   @default("")
+  adresse               String   @default("")
+  telephone             String   @default("")
+  fax                   String   @default("")
+  branches_professionnelles String @default("")
+  date_mise_a_jour      DateTime @default(now())
+  
+  @@map("ifep_info")
+}
+
