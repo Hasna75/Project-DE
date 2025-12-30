@@ -10,7 +10,7 @@ export async function GET() {
         etapes_manuel: true
       }
     })
-    
+
     // Constantes pour les noms d'étapes
     const ETAPES_PROGRAMME = [
       { num: 1, nom: "Collection des données" },
@@ -20,7 +20,7 @@ export async function GET() {
       { num: 5, nom: "Plan d'équipement" },
       { num: 6, nom: "Publication" }
     ]
-    
+
     const ETAPES_MANUEL = [
       { num: 1, nom: "Collection des données" },
       { num: 2, nom: "Rédaction" },
@@ -29,50 +29,56 @@ export async function GET() {
       { num: 5, nom: "Validation finale" },
       { num: 6, nom: "Publication" }
     ]
-    
+
     // Fonction pour calculer l'étape actuelle
-    const calculerEtapeActuelle = (etapes: any, typeProjet: string): string => {
-      const etapesList = typeProjet === "Programme d'Études" ? ETAPES_PROGRAMME : ETAPES_MANUEL
-      
+    const calculerEtapeActuelle = (etapes: any, isProgramme: boolean): string => {
+      const etapesList = isProgramme ? ETAPES_PROGRAMME : ETAPES_MANUEL
+
+      if (!etapes) {
+        return etapesList[0].nom
+      }
+
       // Vérifier si toutes les étapes sont terminées
       let toutesTerminees = true
       for (let i = 1; i <= 6; i++) {
-        const statut = etapes?.[`etape${i}_statut`]
+        const statut = etapes[`etape${i}_statut`]
         if (statut !== 'Terminée') {
           toutesTerminees = false
           break
         }
       }
-      
+
       if (toutesTerminees) {
         return 'Terminé'
       }
-      
+
       // Trouver la première étape qui n'est pas terminée
       for (const etape of etapesList) {
-        const statut = etapes?.[`etape${etape.num}_statut`]
+        const statut = etapes[`etape${etape.num}_statut`]
         if (statut !== 'Terminée') {
           return etape.nom
         }
       }
-      
+
       // Si aucune étape n'a de statut, retourner la première étape
       return etapesList[0].nom
     }
-    
+
     // Calculer les statistiques basées sur l'étape actuelle
     let projets_en_cours = 0
     let projets_termines = 0
     const aujourdhui = new Date()
     let projets_retard = 0
-    
+
     projets.forEach(projet => {
-      const etapes = projet.type_projet === "Programme d'Études" 
-        ? projet.etapes_programme 
+      const isProgramme = projet.type_projet.includes("Programme")
+
+      const etapes = isProgramme
+        ? projet.etapes_programme
         : projet.etapes_manuel
-      
-      const etapeActuelle = etapes ? calculerEtapeActuelle(etapes, projet.type_projet) : "Collection des données"
-      
+
+      const etapeActuelle = calculerEtapeActuelle(etapes, isProgramme)
+
       if (etapeActuelle === 'Terminé') {
         projets_termines++
       } else {
@@ -83,11 +89,11 @@ export async function GET() {
         }
       }
     })
-    
+
     const formateurs_actifs = await prisma.formateur.count({
       where: { statut: 'Actif' }
     })
-    
+
     const validations_attente = await prisma.validation.count({
       where: { statut: 'En attente' }
     })
