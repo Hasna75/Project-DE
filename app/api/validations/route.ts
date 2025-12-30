@@ -8,15 +8,23 @@ export async function GET() {
       orderBy: { date_demande: 'desc' },
       include: {
         projet: {
-          select: {
-            id: true,
-            titre: true,
-            type_projet: true
+          include: {
+            programme: true,
+            manuel: true
           }
         }
       }
     })
-    return NextResponse.json(validations)
+
+    const validationsWithTitre = validations.map(val => ({
+      ...val,
+      projet: {
+        ...val.projet,
+        titre: val.projet.programme?.titre || val.projet.manuel?.titre || "Projet sans titre"
+      }
+    }))
+
+    return NextResponse.json(validationsWithTitre)
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(
@@ -29,14 +37,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const data = await request.json()
-    
+
     // Générer l'ID séquentiel (val1, val2, val3...)
     const prefix = 'val'
     const dernierValidation = await prisma.validation.findFirst({
       where: { id: { startsWith: prefix } },
       orderBy: { id: 'desc' }
     })
-    
+
     let numero = 1
     if (dernierValidation) {
       const numStr = dernierValidation.id.substring(prefix.length)
@@ -46,7 +54,7 @@ export async function POST(request: Request) {
       }
     }
     const validation_id = `${prefix}${numero}`
-    
+
     const validation = await prisma.validation.create({
       data: {
         id: validation_id,
@@ -63,23 +71,30 @@ export async function POST(request: Request) {
       },
       include: {
         projet: {
-          select: {
-            id: true,
-            titre: true,
-            type_projet: true
+          include: {
+            programme: true,
+            manuel: true
           }
         }
       }
     })
-    
+
+    const validationWithTitre = {
+      ...validation,
+      projet: {
+        ...validation.projet,
+        titre: validation.projet.programme?.titre || validation.projet.manuel?.titre || "Projet sans titre"
+      }
+    }
+
     // Enregistrer dans l'historique
     await enregistrerHistorique({
       projet_id: data.projet_id,
       action: 'Création de validation',
       details: `Validation ${validation_id} créée pour l'étape "${data.etape}" du projet ${data.projet_id}`
     })
-    
-    return NextResponse.json(validation, { status: 201 })
+
+    return NextResponse.json(validationWithTitre, { status: 201 })
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(
@@ -93,7 +108,7 @@ export async function PUT(request: Request) {
   try {
     const data = await request.json()
     const { id, ...updateData } = data
-    
+
     const processedData: any = {}
     if (updateData.date_validation) {
       processedData.date_validation = new Date(updateData.date_validation)
@@ -105,29 +120,36 @@ export async function PUT(request: Request) {
     if (updateData.rep_infep !== undefined) processedData.rep_infep = updateData.rep_infep
     if (updateData.insp !== undefined) processedData.insp = updateData.insp
     if (updateData.rep_sect_eco !== undefined) processedData.rep_sect_eco = updateData.rep_sect_eco
-    
+
     const validation = await prisma.validation.update({
       where: { id },
       data: processedData,
       include: {
         projet: {
-          select: {
-            id: true,
-            titre: true,
-            type_projet: true
+          include: {
+            programme: true,
+            manuel: true
           }
         }
       }
     })
-    
+
+    const validationWithTitre = {
+      ...validation,
+      projet: {
+        ...validation.projet,
+        titre: validation.projet.programme?.titre || validation.projet.manuel?.titre || "Projet sans titre"
+      }
+    }
+
     // Enregistrer dans l'historique
     await enregistrerHistorique({
       projet_id: validation.projet_id,
       action: 'Modification de validation',
       details: `Validation ${id} modifiée - Statut: ${processedData.statut || validation.statut}`
     })
-    
-    return NextResponse.json(validation)
+
+    return NextResponse.json(validationWithTitre)
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(
@@ -141,31 +163,31 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'ID de la validation requis' },
         { status: 400 }
       )
     }
-    
+
     // Récupérer les infos de la validation avant suppression
     const validation = await prisma.validation.findUnique({
       where: { id },
       select: { id: true, projet_id: true, etape: true }
     })
-    
+
     await prisma.validation.delete({
       where: { id }
     })
-    
+
     // Enregistrer dans l'historique
     await enregistrerHistorique({
       projet_id: validation?.projet_id || null,
       action: 'Suppression de validation',
       details: validation ? `Validation ${id} pour l'étape "${validation.etape}" supprimée` : `Validation ${id} supprimée`
     })
-    
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erreur:', error)

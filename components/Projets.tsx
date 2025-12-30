@@ -2,19 +2,40 @@
 
 import { useState, useEffect } from 'react'
 
+interface Programme {
+  id_prog: string
+  titre: string
+  type_prog: string
+  mode_prog: string | null
+  duree: string | null
+  sect_eco: string | null
+  code_spec: string | null
+  Niv: string | null
+}
+
+interface Manuel {
+  id_man: string
+  titre: string
+  dat_deb: string | null
+  dat_fin: string | null
+  duree: string | null
+  cod_spec: string | null
+  MQ: string | null
+  Niv: string | null
+}
+
 interface Projet {
   id: string
   type_projet: string
   titre: string
-  description: string | null
-  code_spec: string | null
   date_debut: string
   date_fin_prevue: string | null
   statut: string
   etape_actuelle: string | null
   priorite: string
-  secteur_economique: string | null
   date_creation: string
+  programme?: Programme
+  manuel?: Manuel
 }
 
 export default function Projets() {
@@ -30,13 +51,18 @@ export default function Projets() {
   const [formData, setFormData] = useState({
     type_projet: "Programme d'Études",
     titre: '',
-    description: '',
     code_spec: '',
     date_debut: '',
     date_fin_prevue: '',
     statut: 'En cours',
     priorite: 'Moyenne',
-    secteur_economique: ''
+    secteur_economique: '',
+    // Nouveaux champs
+    type_prog: '',
+    mode_prog: '',
+    duree: '',
+    Niv: '',
+    MQ: ''
   })
 
   useEffect(() => {
@@ -62,7 +88,12 @@ export default function Projets() {
         ...formData,
         code_spec: formData.code_spec || null,
         date_fin_prevue: formData.date_fin_prevue || null,
-        secteur_economique: formData.type_projet === "Programme d'Études" ? formData.secteur_economique : null
+        secteur_economique: formData.type_projet === "Programme d'Études" ? formData.secteur_economique : null,
+        type_prog: formData.type_projet === "Programme d'Études" ? formData.type_prog : null,
+        mode_prog: formData.type_projet === "Programme d'Études" ? formData.mode_prog : null,
+        duree: formData.duree || null,
+        Niv: formData.Niv || null,
+        MQ: formData.type_projet === "Manuel" ? formData.MQ : null
       }
 
       if (editingProjet) {
@@ -94,13 +125,17 @@ export default function Projets() {
     setFormData({
       type_projet: projet.type_projet,
       titre: projet.titre,
-      description: projet.description || '',
-      code_spec: projet.code_spec || '',
+      code_spec: projet.programme?.code_spec || projet.manuel?.cod_spec || '',
       date_debut: projet.date_debut.split('T')[0],
       date_fin_prevue: projet.date_fin_prevue ? projet.date_fin_prevue.split('T')[0] : '',
       statut: projet.statut,
       priorite: projet.priorite,
-      secteur_economique: projet.secteur_economique || ''
+      secteur_economique: projet.programme?.sect_eco || '',
+      type_prog: projet.programme?.type_prog || '',
+      mode_prog: projet.programme?.mode_prog || '',
+      duree: projet.programme?.duree || projet.manuel?.duree || '',
+      Niv: projet.programme?.Niv || projet.manuel?.Niv || '',
+      MQ: projet.manuel?.MQ || ''
     })
     setShowModal(true)
   }
@@ -122,13 +157,17 @@ export default function Projets() {
     setFormData({
       type_projet: "Programme d'Études",
       titre: '',
-      description: '',
       code_spec: '',
       date_debut: '',
       date_fin_prevue: '',
       statut: 'En cours',
       priorite: 'Moyenne',
-      secteur_economique: ''
+      secteur_economique: '',
+      type_prog: '',
+      mode_prog: '',
+      duree: '',
+      Niv: '',
+      MQ: ''
     })
   }
 
@@ -173,11 +212,10 @@ export default function Projets() {
   }
 
   const filteredProjets = projets.filter(projet => {
-    const matchesSearch = 
-      projet.titre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      projet.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (projet.description && projet.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    
+    const matchesSearch =
+      (projet.titre && projet.titre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      projet.id.toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesStatut = !filterStatut || projet.statut === filterStatut
     const matchesType = !filterType || projet.type_projet === filterType
 
@@ -267,8 +305,8 @@ export default function Projets() {
                   </td>
                   <td className="border border-gray-300 px-4 py-2">
                     <div className="font-semibold">{projet.titre}</div>
-                    {projet.description && (
-                      <div className="text-sm text-gray-500 truncate max-w-xs">{projet.description}</div>
+                    {(projet.programme?.code_spec || projet.manuel?.cod_spec) && (
+                      <div className="text-sm text-gray-500 truncate max-w-xs">{projet.programme?.code_spec || projet.manuel?.cod_spec}</div>
                     )}
                   </td>
                   <td className="border border-gray-300 px-4 py-2">
@@ -361,13 +399,7 @@ export default function Projets() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                />
+                {/* Space filler or remove description entirely */}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -423,17 +455,74 @@ export default function Projets() {
               </div>
 
               {formData.type_projet === "Programme d'Études" && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Secteur Économique</label>
-                  <input
-                    type="text"
-                    value={formData.secteur_economique}
-                    onChange={(e) => setFormData({ ...formData, secteur_economique: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Ex: Technologies de l'Information"
-                  />
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Type Programme</label>
+                      <input
+                        type="text"
+                        value={formData.type_prog}
+                        onChange={(e) => setFormData({ ...formData, type_prog: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Mode Programme</label>
+                      <input
+                        type="text"
+                        value={formData.mode_prog}
+                        onChange={(e) => setFormData({ ...formData, mode_prog: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Secteur Économique</label>
+                    <input
+                      type="text"
+                      value={formData.secteur_economique}
+                      onChange={(e) => setFormData({ ...formData, secteur_economique: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Ex: Technologies de l'Information"
+                    />
+                  </div>
+                </>
+              )}
+
+              {formData.type_projet === "Manuel" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">MQ</label>
+                    <input
+                      type="text"
+                      value={formData.MQ}
+                      onChange={(e) => setFormData({ ...formData, MQ: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Durée</label>
+                  <input
+                    type="text"
+                    value={formData.duree}
+                    onChange={(e) => setFormData({ ...formData, duree: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Niveau (Niv)</label>
+                  <input
+                    type="text"
+                    value={formData.Niv}
+                    onChange={(e) => setFormData({ ...formData, Niv: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
 
               <div className="flex justify-end gap-4 pt-4">
                 <button

@@ -10,9 +10,9 @@ export async function GET() {
     const affectations = await prisma.affectation.findMany({
       include: {
         projet: {
-          select: {
-            id: true,
-            titre: true
+          include: {
+            programme: true,
+            manuel: true
           }
         },
         formateur: {
@@ -24,7 +24,16 @@ export async function GET() {
         }
       }
     })
-    return NextResponse.json(affectations)
+
+    const affectationsWithTitre = affectations.map(aff => ({
+      ...aff,
+      projet: {
+        ...aff.projet,
+        titre: aff.projet.programme?.titre || aff.projet.manuel?.titre || "Projet sans titre"
+      }
+    }))
+
+    return NextResponse.json(affectationsWithTitre)
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(
@@ -38,7 +47,7 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
     const { formateur_id, projet_id, role, charge_travail } = data
-    
+
     if (!formateur_id || !projet_id || !role) {
       return NextResponse.json(
         { error: 'formateur_id, projet_id et role requis' },
@@ -48,7 +57,7 @@ export async function POST(request: Request) {
 
     // Générer l'ID de l'affectation
     const affectation_id = `AFF${Date.now()}${Math.random().toString(36).substring(2, 7)}`
-    
+
     const affectation = await prisma.affectation.create({
       data: {
         id: affectation_id,
@@ -59,9 +68,9 @@ export async function POST(request: Request) {
       },
       include: {
         projet: {
-          select: {
-            id: true,
-            titre: true
+          include: {
+            programme: true,
+            manuel: true
           }
         },
         formateur: {
@@ -73,15 +82,23 @@ export async function POST(request: Request) {
         }
       }
     })
-    
+
+    const affectationWithTitre = {
+      ...affectation,
+      projet: {
+        ...affectation.projet,
+        titre: affectation.projet.programme?.titre || affectation.projet.manuel?.titre || "Projet sans titre"
+      }
+    }
+
     // Enregistrer dans l'historique
     await enregistrerHistorique({
       projet_id: projet_id,
       action: 'Affectation de formateur',
       details: `Formateur ${formateur_id} affecté au projet ${projet_id} en tant que ${role}`
     })
-    
-    return NextResponse.json(affectation, { status: 201 })
+
+    return NextResponse.json(affectationWithTitre, { status: 201 })
   } catch (error) {
     console.error('Erreur:', error)
     return NextResponse.json(
@@ -95,24 +112,24 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'ID de l\'affectation requis' },
         { status: 400 }
       )
     }
-    
+
     // Récupérer les infos de l'affectation avant suppression
     const affectation = await prisma.affectation.findUnique({
       where: { id },
       select: { id: true, projet_id: true, formateur_id: true, role: true }
     })
-    
+
     await prisma.affectation.delete({
       where: { id }
     })
-    
+
     // Enregistrer dans l'historique
     if (affectation) {
       await enregistrerHistorique({
@@ -121,7 +138,7 @@ export async function DELETE(request: Request) {
         details: `Affectation ${id} - Formateur ${affectation.formateur_id} retiré du projet ${affectation.projet_id}`
       })
     }
-    
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Erreur:', error)

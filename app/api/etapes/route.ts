@@ -22,7 +22,7 @@ const ETAPES_MANUEL = [
 
 function calculerEtapeActuelle(etapes: any, typeProjet: string): string {
   const etapesList = typeProjet === "Programme d'Études" ? ETAPES_PROGRAMME : ETAPES_MANUEL
-  
+
   // Vérifier si toutes les étapes sont terminées
   let toutesTerminees = true
   for (let i = 1; i <= 6; i++) {
@@ -32,11 +32,11 @@ function calculerEtapeActuelle(etapes: any, typeProjet: string): string {
       break
     }
   }
-  
+
   if (toutesTerminees) {
     return 'Terminé'
   }
-  
+
   // Trouver la première étape qui n'est pas terminée
   for (const etape of etapesList) {
     const statut = etapes?.[`etape${etape.num}_statut`]
@@ -44,7 +44,7 @@ function calculerEtapeActuelle(etapes: any, typeProjet: string): string {
       return etape.nom
     }
   }
-  
+
   // Si aucune étape n'a de statut, retourner la première étape
   return etapesList[0].nom
 }
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const projet_id = searchParams.get('projet_id')
-    
+
     if (!projet_id) {
       return NextResponse.json(
         { error: 'ID du projet requis' },
@@ -82,63 +82,75 @@ export async function GET(request: Request) {
         where: { projet_id },
         include: {
           projet: {
-            select: {
-              id: true,
-              titre: true,
-              type_projet: true
+            include: {
+              programme: true,
+              manuel: true
             }
           }
         }
       })
-      
+
       // Si les étapes n'existent pas, les créer
       if (!etapes) {
         etapes = await prisma.etapeProgramme.create({
           data: { projet_id },
           include: {
             projet: {
-              select: {
-                id: true,
-                titre: true,
-                type_projet: true
+              include: {
+                programme: true,
+                manuel: true
               }
             }
           }
         })
       }
-      
-      return NextResponse.json(etapes)
+
+      const etapesWithTitre = {
+        ...etapes,
+        projet: {
+          ...etapes.projet,
+          titre: etapes.projet.programme?.titre || etapes.projet.manuel?.titre || "Projet sans titre"
+        }
+      }
+
+      return NextResponse.json(etapesWithTitre)
     } else {
       let etapes = await prisma.etapeManuel.findUnique({
         where: { projet_id },
         include: {
           projet: {
-            select: {
-              id: true,
-              titre: true,
-              type_projet: true
+            include: {
+              programme: true,
+              manuel: true
             }
           }
         }
       })
-      
+
       // Si les étapes n'existent pas, les créer
       if (!etapes) {
         etapes = await prisma.etapeManuel.create({
           data: { projet_id },
           include: {
             projet: {
-              select: {
-                id: true,
-                titre: true,
-                type_projet: true
+              include: {
+                programme: true,
+                manuel: true
               }
             }
           }
         })
       }
-      
-      return NextResponse.json(etapes)
+
+      const etapesWithTitre = {
+        ...etapes,
+        projet: {
+          ...etapes.projet,
+          titre: etapes.projet.programme?.titre || etapes.projet.manuel?.titre || "Projet sans titre"
+        }
+      }
+
+      return NextResponse.json(etapesWithTitre)
     }
   } catch (error) {
     console.error('Erreur:', error)
@@ -153,7 +165,7 @@ export async function PUT(request: Request) {
   try {
     const data = await request.json()
     const { projet_id, type_projet, ...etapesData } = data
-    
+
     if (!projet_id || !type_projet) {
       return NextResponse.json(
         { error: 'ID du projet et type de projet requis' },
@@ -172,7 +184,7 @@ export async function PUT(request: Request) {
       if (type_projet === "Manuel" && key.includes('_validation')) {
         continue
       }
-      
+
       if (key.includes('date') && value) {
         processedData[key] = new Date(value as string)
       } else {
@@ -193,7 +205,7 @@ export async function PUT(request: Request) {
           ...processedData
         }
       })
-      
+
       // Enregistrer dans l'historique
       const etapesModifiees = Object.keys(processedData).filter(key => key.includes('etape') && (key.includes('date') || key.includes('statut')))
       if (etapesModifiees.length > 0) {
@@ -203,14 +215,14 @@ export async function PUT(request: Request) {
           details: `Étapes du projet ${projet_id} modifiées`
         })
       }
-      
+
       // Mettre à jour automatiquement l'étape_actuelle du projet
       const etapeActuelle = calculerEtapeActuelle(etapes, type_projet)
       await prisma.projet.update({
         where: { id: projet_id },
         data: { etape_actuelle: etapeActuelle }
       })
-      
+
       return NextResponse.json(etapes)
     } else {
       const etapes = await prisma.etapeManuel.upsert({
@@ -221,7 +233,7 @@ export async function PUT(request: Request) {
           ...processedData
         }
       })
-      
+
       // Enregistrer dans l'historique
       const etapesModifiees = Object.keys(processedData).filter(key => key.includes('etape') && (key.includes('date') || key.includes('statut')))
       if (etapesModifiees.length > 0) {
@@ -231,14 +243,14 @@ export async function PUT(request: Request) {
           details: `Étapes du projet ${projet_id} modifiées`
         })
       }
-      
+
       // Mettre à jour automatiquement l'étape_actuelle du projet
       const etapeActuelle = calculerEtapeActuelle(etapes, type_projet)
       await prisma.projet.update({
         where: { id: projet_id },
         data: { etape_actuelle: etapeActuelle }
       })
-      
+
       return NextResponse.json(etapes)
     }
   } catch (error) {

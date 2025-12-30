@@ -11,19 +11,18 @@ datasource db {
 }
 
 model Projet {
-  id                String   @id @default("")
+  id                String   @id @default(uuid())
   type_projet       String   // "Programme d'Études" ou "Manuel"
-  titre             String
-  description       String?
-  code_spec         String?
   date_debut        DateTime
   date_fin_prevue   DateTime?
   statut            String   @default("En cours") // En cours, Terminé, En attente, Annulé
   etape_actuelle    String?
   priorite          String   @default("Moyenne") // Haute, Moyenne, Basse
-  secteur_economique String? // Pour Programme d'Études uniquement
   date_creation     DateTime @default(now())
   
+  programme         Programme?
+  manuel            Manuel?
+
   etapes_programme  EtapeProgramme?
   etapes_manuel     EtapeManuel?
   affectations      Affectation[]
@@ -31,6 +30,38 @@ model Projet {
   historique        Historique[]
   
   @@map("projets")
+}
+
+model Programme {
+  id_prog     String   @id @default(uuid())
+  titre       String
+  type_prog   String
+  mode_prog   String?
+  duree       String?
+  sect_eco    String?
+  code_spec   String?
+  Niv         String?
+  
+  projet_id   String   @unique
+  projet      Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  @@map("programmes")
+}
+
+model Manuel {
+  id_man      String   @id @default(uuid())
+  titre       String
+  dat_deb     DateTime?
+  dat_fin     DateTime?
+  duree       String?
+  cod_spec    String?
+  MQ          String?
+  Niv         String?
+  
+  projet_id   String   @unique
+  projet      Projet   @relation(fields: [projet_id], references: [id], onDelete: Cascade)
+  
+  @@map("manuels")
 }
 
 model Formateur {
